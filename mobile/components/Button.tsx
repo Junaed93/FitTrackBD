@@ -1,64 +1,157 @@
-import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, View } from 'react-native';
+import React, { useRef } from 'react';
+import {
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  View,
+  Animated,
+  StyleSheet,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
   loading?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger';
+  disabled?: boolean;
+  variant?: ButtonVariant;
   icon?: keyof typeof Ionicons.glyphMap;
+  fullWidth?: boolean;
 }
 
 export default function Button({
   title,
   onPress,
   loading = false,
+  disabled = false,
   variant = 'primary',
   icon,
+  fullWidth = true,
 }: ButtonProps) {
-  const variantStyles = {
-    primary: 'bg-[#6366f1] shadow-lg shadow-indigo-500/30',
-    secondary: 'bg-[#1a1f2e] border border-[#2a3040]',
-    danger: 'bg-[#ef4444]/90',
+  const { theme } = useTheme();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
   };
 
-  const textStyles = {
-    primary: 'text-white',
-    secondary: 'text-gray-300',
-    danger: 'text-white',
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
   };
 
-  const iconColor = {
-    primary: '#fff',
-    secondary: '#9ca3af',
-    danger: '#fff',
+  // ── variant styles ──────────────────────────────────────────────────────
+  const bg: Record<ButtonVariant, string> = {
+    primary: theme.accent,
+    secondary: 'transparent',
+    danger: '#ef4444',
+    success: theme.success,
   };
+
+  const borderColor: Record<ButtonVariant, string> = {
+    primary: 'transparent',
+    secondary: theme.border,
+    danger: 'transparent',
+    success: 'transparent',
+  };
+
+  const textColor: Record<ButtonVariant, string> = {
+    primary: '#ffffff',
+    secondary: theme.textSecondary,
+    danger: '#ffffff',
+    success: '#ffffff',
+  };
+
+  const iconColor: Record<ButtonVariant, string> = {
+    primary: '#ffffff',
+    secondary: theme.textMuted,
+    danger: '#ffffff',
+    success: '#ffffff',
+  };
+
+  const isDisabled = disabled || loading;
 
   return (
-    <TouchableOpacity
-      className={`rounded-2xl py-4 px-6 flex-row items-center justify-center mt-3 ${variantStyles[variant]}`}
-      onPress={onPress}
-      disabled={loading}
-      activeOpacity={0.7}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <View className="flex-row items-center">
-          {icon && (
-            <Ionicons
-              name={icon}
-              size={20}
-              color={iconColor[variant]}
-              style={{ marginRight: 8 }}
-            />
-          )}
-          <Text className={`font-bold text-base ${textStyles[variant]}`}>
-            {title}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }], width: fullWidth ? '100%' : undefined }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        style={[
+          styles.base,
+          {
+            backgroundColor: bg[variant],
+            borderColor: borderColor[variant],
+            borderWidth: variant === 'secondary' ? 1.5 : 0,
+            opacity: isDisabled ? 0.55 : 1,
+            // Shadow for primary only
+            ...(variant === 'primary' && {
+              shadowColor: theme.accent,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 10,
+              elevation: 6,
+            }),
+          },
+        ]}
+      >
+        {loading ? (
+          <View style={styles.row}>
+            <ActivityIndicator color={textColor[variant]} size="small" />
+            <Text style={[styles.label, { color: textColor[variant], marginLeft: 8 }]}>
+              Please wait…
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.row}>
+            {icon && (
+              <Ionicons
+                name={icon}
+                size={19}
+                color={iconColor[variant]}
+                style={{ marginRight: 8 }}
+              />
+            )}
+            <Text style={[styles.label, { color: textColor[variant] }]}>{title}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  base: {
+    minHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+});

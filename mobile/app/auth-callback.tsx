@@ -2,15 +2,17 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { saveToken } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token: string }>();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (token) {
       saveToken(token).then(() => {
-        router.replace('/profile');
+        router.replace('/(tabs)/home');
       });
     } else {
       router.replace('/login');
@@ -18,9 +20,9 @@ export default function AuthCallbackScreen() {
   }, [token]);
 
   return (
-    <View className="flex-1 bg-[#0d1117] items-center justify-center">
-      <ActivityIndicator size="large" color="#6366f1" />
-      <Text className="text-gray-400 mt-4 font-medium text-base">Signing you in with Google...</Text>
+    <View style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={theme.accent} />
+      <Text style={{ color: theme.textSecondary, marginTop: 16, fontSize: 16, fontWeight: '500' }}>Signing you in with Google...</Text>
     </View>
   );
 }

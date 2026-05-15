@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,36 +6,63 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Animated,
+  StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { loginUser, saveToken } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { theme, isDark, toggleTheme } = useTheme();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailErr, setEmailErr] = useState('');
+  const [passErr, setPassErr] = useState('');
+
+  // ── Entrance animation ───────────────────────────────────────────────────
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, speed: 14, bounciness: 6, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // ── Validation ───────────────────────────────────────────────────────────
+  const validateEmail = () => {
+    if (!email) { setEmailErr('Email is required'); return false; }
+    if (!/\S+@\S+\.\S+/.test(email)) { setEmailErr('Enter a valid email address'); return false; }
+    setEmailErr(''); return true;
+  };
+
+  const validatePass = () => {
+    if (!password) { setPassErr('Password is required'); return false; }
+    setPassErr(''); return true;
+  };
 
   const handleLogin = async () => {
     setError('');
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
+    const ok = validateEmail() & validatePass();
+    if (!ok) return;
 
     setLoading(true);
     try {
       const res = await loginUser({ email, password });
       await saveToken(res.data.access_token);
-      router.replace('/profile');
+      router.replace('/(tabs)/home');
     } catch (err: any) {
-      const message =
-        err.response?.data?.message || 'Login failed. Please try again.';
-      setError(message);
+      const message = err.response?.data?.message || 'Login failed. Please try again.';
+      setError(Array.isArray(message) ? message[0] : message);
     } finally {
       setLoading(false);
     }
@@ -43,130 +70,258 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-[#0d1117]"
+      style={[styles.flex, { backgroundColor: theme.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View className="flex-1 md:flex-row">
-        {/* Left Side: Branding (Visible only on PC/md+) */}
-        <View className="hidden md:flex flex-1 bg-gradient-to-br from-[#1a1f2e] to-[#0d1117] items-center justify-center p-12 border-r border-[#2a3040]">
-           <View className="w-40 h-40 rounded-full bg-[#6366f1]/15 items-center justify-center mb-8 border-[4px] border-[#6366f1]/30">
-              <Ionicons name="fitness" size={80} color="#6366f1" />
-           </View>
-           <Text className="text-white text-6xl font-extrabold tracking-tight mb-4 text-center">
-             FitTrack<Text className="text-[#6366f1]">BD</Text>
-           </Text>
-           <Text className="text-gray-400 text-xl font-medium text-center max-w-md leading-relaxed">
-             The ultimate platform to calculate your caloric needs, crush your goals, and transform your body.
-           </Text>
+      <View style={styles.flex}>
+        {/* ── Theme toggle ── */}
+        <View style={[styles.topBar, { backgroundColor: theme.bg }]}>
+          <TouchableOpacity
+            onPress={toggleTheme}
+            accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={[styles.themeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
+            <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Right Side: Form */}
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View className="px-7 py-10 max-w-lg w-full mx-auto">
-            {/* Logo & Brand (Visible only on Mobile) */}
-            <View className="items-center mb-12 md:hidden">
-              <View className="w-24 h-24 rounded-3xl bg-[#6366f1]/15 items-center justify-center mb-5 border border-[#6366f1]/30">
-                <Ionicons name="fitness" size={48} color="#6366f1" />
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            {/* ── Brand ── */}
+            <View style={styles.brandRow}>
+              <View style={[styles.logoBox, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}>
+                <Ionicons name="fitness" size={40} color={theme.accent} />
               </View>
-              <Text className="text-white text-4xl font-extrabold tracking-tight">
-                FitTrack<Text className="text-[#6366f1]">BD</Text>
+              <Text style={[styles.appName, { color: theme.text }]}>
+                FitTrack<Text style={{ color: theme.accent }}>BD</Text>
               </Text>
-              <Text className="text-gray-500 text-base mt-2 font-medium">
+              <Text style={[styles.tagline, { color: theme.textMuted }]}>
                 Your fitness journey starts here
               </Text>
             </View>
 
-            {/* PC Header */}
-            <View className="hidden md:flex mb-10">
-              <Text className="text-white text-3xl font-bold mb-2">Welcome Back</Text>
-              <Text className="text-gray-500">Sign in to your account to continue.</Text>
-            </View>
+            {/* ── Divider ── */}
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-            {/* Error */}
+            {/* ── Heading ── */}
+            <Text style={[styles.heading, { color: theme.text }]}>Welcome Back</Text>
+            <Text style={[styles.subheading, { color: theme.textSecondary }]}>
+              Sign in to your account to continue.
+            </Text>
+
+            {/* ── Global error — Rule 3: Informative Feedback ── */}
             {error ? (
-              <View className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3.5 mb-5 flex-row items-center">
-                <Ionicons name="alert-circle" size={18} color="#f87171" style={{ marginRight: 8 }} />
-                <Text className="text-red-400 text-sm flex-1">{error}</Text>
+              <View style={[styles.errorBanner, { backgroundColor: theme.errorSurface, borderColor: theme.errorBorder }]}>
+                <Ionicons name="alert-circle" size={16} color={theme.error} style={{ marginRight: 8 }} />
+                <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
               </View>
             ) : null}
 
-            {/* Form */}
+            {/* ── Form ── */}
             <Input
               label="Email Address"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => { setEmail(v); if (emailErr) setEmailErr(''); }}
               placeholder="you@example.com"
               keyboardType="email-address"
               icon="mail-outline"
+              error={emailErr}
+              autoCapitalize="none"
             />
 
             <Input
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(v) => { setPassword(v); if (passErr) setPassErr(''); }}
               placeholder="Enter your password"
               secureTextEntry
               icon="lock-closed-outline"
+              error={passErr}
             />
 
-            <View className="mt-3">
-              <Button
-                title="Sign In"
-                onPress={handleLogin}
-                loading={loading}
-                icon="log-in-outline"
-              />
+            {/* ── Forgot password — Rule 6: Easy Reversal ── */}
+            <TouchableOpacity style={styles.forgotRow} accessibilityLabel="Forgot password">
+              <Text style={[styles.forgotText, { color: theme.accentLight }]}>Forgot password?</Text>
+            </TouchableOpacity>
+
+            <Button title="Sign In" onPress={handleLogin} loading={loading} icon="log-in-outline" />
+
+            {/* ── Divider ── */}
+            <View style={styles.orRow}>
+              <View style={[styles.orLine, { backgroundColor: theme.border }]} />
+              <Text style={[styles.orText, { color: theme.textMuted }]}>OR</Text>
+              <View style={[styles.orLine, { backgroundColor: theme.border }]} />
             </View>
 
-            {/* Divider */}
-            <View className="flex-row items-center my-8">
-              <View className="flex-1 h-px bg-[#2a3040]" />
-              <Text className="text-gray-600 mx-4 text-xs font-medium uppercase tracking-wider">or</Text>
-              <View className="flex-1 h-px bg-[#2a3040]" />
-            </View>
-
-            {/* Register link */}
-            <Button
-              title="Create New Account"
-              onPress={() => router.push('/register')}
-              variant="secondary"
-              icon="person-add-outline"
-            />
-
-            {/* Divider */}
-            <View className="flex-row items-center my-6">
-              <View className="flex-1 h-px bg-[#2a3040]" />
-              <Text className="text-gray-600 mx-4 text-xs font-medium uppercase tracking-wider">or</Text>
-              <View className="flex-1 h-px bg-[#2a3040]" />
-            </View>
-
-            {/* Google OAuth */}
+            {/* ── Google OAuth ── */}
             <TouchableOpacity
-              className="flex-row items-center justify-center py-4 px-6 rounded-2xl border border-[#2a3040] bg-[#1a1f2e]"
+              style={[styles.googleBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={() => {
                 if (typeof window !== 'undefined') {
                   window.location.href = 'http://localhost:3000/auth/google';
                 }
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
+              accessibilityLabel="Continue with Google"
             >
-              <Ionicons name="logo-google" size={20} color="#ea4335" style={{ marginRight: 10 }} />
-              <Text className="text-white font-bold text-base">Continue with Google</Text>
+              <Ionicons name="logo-google" size={19} color="#ea4335" style={{ marginRight: 10 }} />
+              <Text style={[styles.googleText, { color: theme.text }]}>Continue with Google</Text>
             </TouchableOpacity>
 
-            {/* Footer */}
-            <View className="items-center mt-10 md:mt-20">
-              <Text className="text-gray-600 text-xs">
-                Built with ❤️ in Bangladesh
-              </Text>
+            {/* ── Register link ── */}
+            <View style={styles.registerRow}>
+              <Text style={[styles.registerPrompt, { color: theme.textSecondary }]}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/register')} accessibilityLabel="Create new account">
+                <Text style={[styles.registerLink, { color: theme.accent }]}>Create one</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+
+            {/* ── Footer ── */}
+            <Text style={[styles.footer, { color: theme.textMuted }]}>Built with ❤️ in Bangladesh</Text>
+          </Animated.View>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  topBar: {
+    paddingTop: Platform.OS === 'ios' ? 56 : 36,
+    paddingHorizontal: 20,
+    alignItems: 'flex-end',
+  },
+  themeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+  },
+  card: {
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  brandRow: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  logoBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  appName: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  divider: {
+    height: 1,
+    marginBottom: 24,
+  },
+  heading: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  subheading: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 20,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  forgotText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  orLine: { flex: 1, height: 1 },
+  orText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginHorizontal: 12,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 24,
+    marginBottom: 4,
+  },
+  googleText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  registerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  registerPrompt: { fontSize: 14 },
+  registerLink: { fontSize: 14, fontWeight: '700' },
+  footer: {
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 24,
+  },
+});

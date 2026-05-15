@@ -13,7 +13,7 @@ export default function Index() {
   const checkAuth = async () => {
     const token = await getToken();
     if (token) {
-      router.replace('/profile');
+      router.replace('/(tabs)/home');
     } else {
       router.replace('/login');
     }

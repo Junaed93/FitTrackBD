@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,53 +6,100 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Animated,
+  StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { registerUser, loginUser, saveToken } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
+
+// ── Password Strength Meter ─────────────────────────────────────────────────
+function PasswordStrength({ password }: { password: string }) {
+  const { theme } = useTheme();
+  if (!password) return null;
+
+  let level = 0;
+  if (password.length >= 6) level = 1;
+  if (password.length >= 8 && /[A-Z]/.test(password)) level = 2;
+  if (password.length >= 10 && /[A-Z]/.test(password) && /[0-9!@#$%^&*]/.test(password)) level = 3;
+
+  const colors = ['#ef4444', '#f59e0b', '#10b981'];
+  const labels = ['Weak', 'Fair', 'Strong'];
+  const color = colors[level - 1] ?? colors[0];
+  const label = labels[level - 1] ?? labels[0];
+
+  return (
+    <View style={styles.strengthWrapper}>
+      <View style={styles.strengthBars}>
+        {[1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.strengthBar,
+              { backgroundColor: i <= level ? color : theme.border },
+            ]}
+          />
+        ))}
+      </View>
+      <Text style={[styles.strengthLabel, { color }]}>{label}</Text>
+    </View>
+  );
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { theme, isDark, toggleTheme } = useTheme();
 
-  const updateField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [errors, setErrors] = useState({ name: '', email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [globalError, setGlobalError] = useState('');
+
+  // ── Entrance animation ───────────────────────────────────────────────────
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, speed: 14, bounciness: 6, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const update = (field: keyof typeof form, value: string) => {
+    setForm((p) => ({ ...p, [field]: value }));
+    if (errors[field]) setErrors((p) => ({ ...p, [field]: '' }));
+  };
+
+  // ── Validation — Rule 5: Prevent Errors ─────────────────────────────────
+  const validate = () => {
+    const newErrors = { name: '', email: '', password: '' };
+    let valid = true;
+    if (!form.name.trim()) { newErrors.name = 'Full name is required'; valid = false; }
+    if (!form.email) { newErrors.email = 'Email is required'; valid = false; }
+    else if (!/\S+@\S+\.\S+/.test(form.email)) { newErrors.email = 'Enter a valid email'; valid = false; }
+    if (!form.password) { newErrors.password = 'Password is required'; valid = false; }
+    else if (form.password.length < 6) { newErrors.password = 'Password must be at least 6 characters'; valid = false; }
+    setErrors(newErrors);
+    return valid;
   };
 
   const handleRegister = async () => {
-    setError('');
-
-    if (!form.name || !form.email || !form.password) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
+    setGlobalError('');
+    if (!validate()) return;
 
     setLoading(true);
     try {
       await registerUser(form);
-      
       const loginRes = await loginUser({ email: form.email, password: form.password });
       await saveToken(loginRes.data.access_token);
-      
-      router.replace('/profile');
+      router.replace('/(tabs)/home');
     } catch (err: any) {
-      const message =
-        err.response?.data?.message ||
-        'Registration failed. Please try again.';
-      setError(Array.isArray(message) ? message[0] : message);
+      const message = err.response?.data?.message || 'Registration failed. Please try again.';
+      setGlobalError(Array.isArray(message) ? message[0] : message);
     } finally {
       setLoading(false);
     }
@@ -60,122 +107,256 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-[#0d1117]"
+      style={[styles.flex, { backgroundColor: theme.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View className="flex-1 md:flex-row-reverse">
-        {/* Left Side: Branding (Visible only on PC/md+) - Reversed order for variety */}
-        <View className="hidden md:flex flex-1 bg-gradient-to-tr from-[#1a1f2e] to-[#0f1422] items-center justify-center p-12 border-l border-[#2a3040]">
-           <View className="w-40 h-40 rounded-full bg-[#10b981]/15 items-center justify-center mb-8 border-[4px] border-[#10b981]/30">
-              <Ionicons name="rocket" size={80} color="#10b981" />
-           </View>
-           <Text className="text-white text-5xl font-extrabold tracking-tight mb-4 text-center">
-             Start Your Journey
-           </Text>
-           <Text className="text-gray-400 text-lg font-medium text-center max-w-md leading-relaxed">
-             Join thousands of users tracking their macros and hitting their fitness goals seamlessly.
-           </Text>
-        </View>
-
-        {/* Right Side: Form */}
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-          keyboardShouldPersistTaps="handled"
+      {/* ── Top bar: back + theme toggle ── */}
+      <View style={[styles.topBar, { backgroundColor: theme.bg }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          accessibilityLabel="Go back"
         >
-          <View className="px-7 py-10 max-w-lg w-full mx-auto">
-            {/* Header */}
-            <View className="flex-row items-center mb-10">
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="w-10 h-10 rounded-xl bg-[#1a1f2e] items-center justify-center mr-4"
-              >
-                <Ionicons name="arrow-back" size={20} color="#9ca3af" />
-              </TouchableOpacity>
-              <View className="flex-1">
-                <Text className="text-white text-3xl font-extrabold">
-                  Join Us
-                </Text>
-                <Text className="text-gray-500 text-base mt-1">
-                  Create an account to get started
-                </Text>
-              </View>
+          <Ionicons name="arrow-back" size={20} color={theme.textSecondary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={theme.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View
+          style={[
+            styles.card,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          {/* ── Brand icon ── */}
+          <View style={styles.brandRow}>
+            <View style={[styles.logoBox, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}>
+              <Ionicons name="rocket" size={36} color={theme.accent} />
             </View>
+          </View>
 
-            {/* Error */}
-            {error ? (
-              <View className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3.5 mb-5 flex-row items-center">
-                <Ionicons name="alert-circle" size={18} color="#f87171" style={{ marginRight: 8 }} />
-                <Text className="text-red-400 text-sm flex-1">{error}</Text>
-              </View>
-            ) : null}
+          {/* ── Heading ── */}
+          <Text style={[styles.heading, { color: theme.text }]}>Create Account</Text>
+          <Text style={[styles.subheading, { color: theme.textSecondary }]}>
+            Join thousands achieving their fitness goals.
+          </Text>
 
-            <Input
-              label="Full Name"
-              value={form.name}
-              onChangeText={(v) => updateField('name', v)}
-              placeholder="Junaed"
-              icon="person-outline"
-            />
-
-            <Input
-              label="Email Address"
-              value={form.email}
-              onChangeText={(v) => updateField('email', v)}
-              placeholder="junaed@gmail.com"
-              keyboardType="email-address"
-              icon="mail-outline"
-            />
-
-            <Input
-              label="Password"
-              value={form.password}
-              onChangeText={(v) => updateField('password', v)}
-              placeholder="Min 6 characters"
-              secureTextEntry
-              icon="lock-closed-outline"
-            />
-
-            <View className="mt-4">
-              <Button
-                title="Create Account"
-                onPress={handleRegister}
-                loading={loading}
-                icon="person-add-outline"
-              />
+          {/* ── Global error ── */}
+          {globalError ? (
+            <View style={[styles.errorBanner, { backgroundColor: theme.errorSurface, borderColor: theme.errorBorder }]}>
+              <Ionicons name="alert-circle" size={16} color={theme.error} style={{ marginRight: 8 }} />
+              <Text style={[styles.errorText, { color: theme.error }]}>{globalError}</Text>
             </View>
+          ) : null}
 
-            {/* Login link */}
-            <View className="flex-row justify-center mt-10">
-              <Text className="text-gray-500">Already have an account? </Text>
-              <TouchableOpacity onPress={() => router.replace('/login')}>
-                 <Text className="text-[#818cf8] font-bold">Sign In</Text>
-              </TouchableOpacity>
-            </View>
+          {/* ── Form ── */}
+          <Input
+            label="Full Name"
+            value={form.name}
+            onChangeText={(v) => update('name', v)}
+            placeholder="John Doe"
+            icon="person-outline"
+            error={errors.name}
+            autoCapitalize="words"
+          />
 
-            {/* Divider */}
-            <View className="flex-row items-center my-6">
-              <View className="flex-1 h-px bg-[#2a3040]" />
-              <Text className="text-gray-600 mx-4 text-xs font-medium uppercase tracking-wider">or</Text>
-              <View className="flex-1 h-px bg-[#2a3040]" />
-            </View>
+          <Input
+            label="Email Address"
+            value={form.email}
+            onChangeText={(v) => update('email', v)}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            icon="mail-outline"
+            error={errors.email}
+          />
 
-            {/* Google OAuth */}
-            <TouchableOpacity
-              className="flex-row items-center justify-center py-4 px-6 rounded-2xl border border-[#2a3040] bg-[#1a1f2e]"
-              onPress={() => {
-                if (typeof window !== 'undefined') {
-                  window.location.href = 'http://localhost:3000/auth/google';
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="logo-google" size={20} color="#ea4335" style={{ marginRight: 10 }} />
-              <Text className="text-white font-bold text-base">Continue with Google</Text>
+          <Input
+            label="Password"
+            value={form.password}
+            onChangeText={(v) => update('password', v)}
+            placeholder="Min. 6 characters"
+            secureTextEntry
+            icon="lock-closed-outline"
+            error={errors.password}
+            hint={!errors.password ? 'Use 8+ chars, uppercase & numbers for a strong password' : undefined}
+          />
+
+          {/* ── Password strength ── Rule 5 ── */}
+          <PasswordStrength password={form.password} />
+
+          <Button
+            title="Create Account"
+            onPress={handleRegister}
+            loading={loading}
+            icon="person-add-outline"
+          />
+
+          {/* ── Divider ── */}
+          <View style={styles.orRow}>
+            <View style={[styles.orLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.orText, { color: theme.textMuted }]}>OR</Text>
+            <View style={[styles.orLine, { backgroundColor: theme.border }]} />
+          </View>
+
+          {/* ── Google OAuth ── */}
+          <TouchableOpacity
+            style={[styles.googleBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            onPress={() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = 'http://localhost:3000/auth/google';
+              }
+            }}
+            activeOpacity={0.75}
+            accessibilityLabel="Continue with Google"
+          >
+            <Ionicons name="logo-google" size={19} color="#ea4335" style={{ marginRight: 10 }} />
+            <Text style={[styles.googleText, { color: theme.text }]}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* ── Sign in link — Rule 6: Reversal ── */}
+          <View style={styles.loginRow}>
+            <Text style={[styles.loginPrompt, { color: theme.textSecondary }]}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace('/login')} accessibilityLabel="Sign in">
+              <Text style={[styles.loginLink, { color: theme.accent }]}>Sign In</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </View>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  topBar: {
+    paddingTop: Platform.OS === 'ios' ? 56 : 36,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+  },
+  card: {
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  brandRow: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heading: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  subheading: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 20,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  strengthWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 12,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 4,
+    marginRight: 10,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  strengthLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    width: 40,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  orLine: { flex: 1, height: 1 },
+  orText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginHorizontal: 12,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 24,
+    marginBottom: 4,
+  },
+  googleText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  loginPrompt: { fontSize: 14 },
+  loginLink: { fontSize: 14, fontWeight: '700' },
+});
