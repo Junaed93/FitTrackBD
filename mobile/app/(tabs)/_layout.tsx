@@ -1,108 +1,243 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Platform, StyleSheet, Animated, useWindowDimensions, Keyboard, PanResponder } from 'react-native';
 import { Tabs } from 'expo-router';
-import { View, Platform, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-export default function TabLayout() {
+const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  
+  // Tab Bar Width configuration
+  const HORIZONTAL_PADDING = 16;
+  const TAB_BAR_WIDTH = width - (HORIZONTAL_PADDING * 2);
+  const TAB_WIDTH = TAB_BAR_WIDTH / state.routes.length;
+  
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const panX = useRef(new Animated.Value(state.index * TAB_WIDTH)).current;
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
+  // Sync animation when state changes externally (e.g. standard click or back button)
+  useEffect(() => {
+    Animated.spring(panX, {
+      toValue: state.index * TAB_WIDTH,
+      useNativeDriver: false,
+      bounciness: 8,
+      speed: 12
+    }).start();
+  }, [state.index, TAB_WIDTH]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: (e, gs) => {
+        panX.stopAnimation();
+        let localX = gs.x0 - HORIZONTAL_PADDING;
+        let newX = localX - (TAB_WIDTH / 2);
+        const maxX = (state.routes.length - 1) * TAB_WIDTH;
+        if (newX < 0) newX = 0;
+        if (newX > maxX) newX = maxX;
+        panX.setValue(newX);
+      },
+      onPanResponderMove: (e, gs) => {
+        let localX = gs.moveX - HORIZONTAL_PADDING;
+        let newX = localX - (TAB_WIDTH / 2);
+        const maxX = (state.routes.length - 1) * TAB_WIDTH;
+        if (newX < 0) newX = 0;
+        if (newX > maxX) newX = maxX;
+        panX.setValue(newX);
+      },
+      onPanResponderRelease: (e, gs) => {
+        let localX = (gs.moveX > 0 ? gs.moveX : gs.x0) - HORIZONTAL_PADDING;
+        
+        let targetIndex = Math.floor(localX / TAB_WIDTH);
+        if (targetIndex < 0) targetIndex = 0;
+        if (targetIndex >= state.routes.length) targetIndex = state.routes.length - 1;
+
+        Animated.spring(panX, {
+          toValue: targetIndex * TAB_WIDTH,
+          useNativeDriver: false, // Ensure smooth handoff from JS touch to animation
+          bounciness: 8,
+          speed: 12
+        }).start();
+
+        const route = state.routes[targetIndex];
+        
+        if (targetIndex !== state.index) {
+          navigation.navigate(route.name);
+        } else {
+          // If tapped on the already active tab
+          navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+        }
+      },
+      onPanResponderTerminate: () => {
+         Animated.spring(panX, {
+           toValue: state.index * TAB_WIDTH,
+           useNativeDriver: false,
+           bounciness: 8,
+           speed: 12
+         }).start();
+      }
+    })
+  ).current;
+
+  if (isKeyboardVisible) return null; // Hide on keyboard open
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 16,
-          left: 16,
-          right: 16,
-          elevation: 0,
-          backgroundColor: 'transparent',
-          borderRadius: 32,
-          height: 64,
-          borderTopWidth: 0,
-        },
-        tabBarBackground: () => (
-          <View style={[styles.blurContainer, { borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)' }]}>
-            {Platform.OS !== 'web' ? (
-              <BlurView
-                tint={isDark ? "dark" : "light"}
-                intensity={80}
-                style={StyleSheet.absoluteFill}
-              />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)' } as any]} />
-            )}
-          </View>
-        ),
-        tabBarShowLabel: true,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginBottom: Platform.OS === 'ios' ? 0 : 4,
-        },
-        tabBarItemStyle: Platform.OS === 'web' ? { outlineStyle: 'none' } as any : undefined,
-        tabBarActiveTintColor: theme.accent,
-        tabBarInactiveTintColor: theme.textMuted,
-      }}>
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconWrapper}>
-              <Ionicons name={focused ? "home" : "home-outline"} size={26} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="food"
-        options={{
-          title: 'Food',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconWrapper}>
-              <Ionicons name={focused ? "restaurant" : "restaurant-outline"} size={26} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="calorie"
-        options={{
-          title: 'Calorie',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconWrapper}>
-              <Ionicons name={focused ? "flame" : "flame-outline"} size={26} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconWrapper}>
-              <Ionicons name={focused ? "person" : "person-outline"} size={26} color={color} />
-            </View>
-          ),
-        }}
-      />
+    <View style={styles.tabBarContainer}>
+      <View style={[styles.blurContainer, { borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)' }]}>
+        {Platform.OS !== 'web' ? (
+          <BlurView tint={isDark ? "dark" : "light"} intensity={80} style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)' } as any]} />
+        )}
+        
+        {/* Animated Sliding Highlight Pill */}
+        <Animated.View style={[
+          styles.activePill, 
+          { 
+            width: TAB_WIDTH,
+            transform: [{ translateX: panX }]
+          }
+        ]}>
+          <View style={[styles.pillInner, { backgroundColor: theme.accentSurface }]} />
+        </Animated.View>
+
+        {/* Tab Items Container wrapped with PanResponder */}
+        <View style={styles.tabItemsContainer} {...panResponder.panHandlers}>
+          {state.routes.map((route, index) => {
+            const { options } = descriptors[route.key];
+            const isFocused = state.index === index;
+
+            // Icons
+            let iconName: any = 'home-outline';
+            if (route.name === 'home') iconName = isFocused ? 'home' : 'home-outline';
+            else if (route.name === 'food') iconName = isFocused ? 'restaurant' : 'restaurant-outline';
+            else if (route.name === 'calorie') iconName = isFocused ? 'flame' : 'flame-outline';
+            else if (route.name === 'profile') iconName = isFocused ? 'person' : 'person-outline';
+
+            return (
+              <View
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+                accessibilityLabel={options.tabBarAccessibilityLabel}
+                testID={options.tabBarTestID}
+                style={styles.tabItem}
+              >
+                <AnimatedIcon 
+                   name={iconName} 
+                   panX={panX}
+                   index={index}
+                   tabWidth={TAB_WIDTH}
+                   isFocused={isFocused} 
+                   activeColor={theme.accentLight} 
+                   inactiveColor={theme.textMuted} 
+                />
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Continuous Magnifying Glass Effect driven directly by PanX
+const AnimatedIcon = ({ name, panX, index, tabWidth, isFocused, activeColor, inactiveColor }: any) => {
+  const targetX = index * tabWidth;
+  
+  // Bulge up to 1.35x scale when the highlight pill is perfectly centered underneath it
+  const scale = panX.interpolate({
+    inputRange: [targetX - tabWidth, targetX, targetX + tabWidth],
+    outputRange: [1, 1.35, 1],
+    extrapolate: 'clamp'
+  });
+  
+  // Slight upward lift (levitation) when focused/magnified
+  const translateY = panX.interpolate({
+    inputRange: [targetX - tabWidth, targetX, targetX + tabWidth],
+    outputRange: [0, -3, 0],
+    extrapolate: 'clamp'
+  });
+
+  return (
+    <Animated.View style={{ transform: [{ scale }, { translateY }] }}>
+      <Ionicons name={name} size={24} color={isFocused ? activeColor : inactiveColor} />
+    </Animated.View>
+  );
+};
+
+export default function TabLayout() {
+  return (
+    <Tabs tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="home" />
+      <Tabs.Screen name="food" />
+      <Tabs.Screen name="calorie" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    left: 16,
+    right: 16,
+    height: 64,
+    zIndex: 999,
+    elevation: 10,
+  },
   blurContainer: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     borderRadius: 32,
     overflow: 'hidden',
     borderWidth: 1,
   },
-  iconWrapper: {
+  tabItemsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  tabItem: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 8 : 4,
+  },
+  activePill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pillInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   }
 });
