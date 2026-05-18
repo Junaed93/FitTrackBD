@@ -9,7 +9,7 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -190,7 +190,7 @@ export default function LoginScreen() {
             </View>
 
             {/* ── Footer ── */}
-            <Text style={[styles.footer, { color: theme.textMuted }]}>Built with ❤️ in Bangladesh</Text>
+            <Text style={[styles.footer, { color: theme.textMuted }]}>Built by  <Link href="https://junaed93.github.io">Junaed</Link></Text>
           </Animated.View>
         </ScrollView>
       </View>
