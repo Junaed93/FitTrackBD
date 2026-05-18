@@ -8,6 +8,7 @@ import Button from '../../components/Button';
 import { useTheme } from '../../context/ThemeContext';
 import { logWeight, getWeightLogs, getProfile } from '../../services/api';
 import { getDailyCalories, getTodayString } from '../../services/foodStorage';
+import { getUserStats } from '../../services/userStatsStorage';
 
 export default function HomeScreen() {
   const { theme } = useTheme();
@@ -20,15 +21,18 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [consumedCalories, setConsumedCalories] = useState(0);
+  const [userStats, setUserStats] = useState<any>({ initialWeight: null, targetWeight: null });
 
   const fetchDashboardData = async () => {
     try {
-      const [logsRes, profileRes] = await Promise.all([
+      const [logsRes, profileRes, statsRes] = await Promise.all([
         getWeightLogs(),
-        getProfile()
+        getProfile(),
+        getUserStats()
       ]);
       setLogs(logsRes.data);
       setProfile(profileRes.data);
+      setUserStats(statsRes);
     } catch (error) {
       console.log('Failed to fetch dashboard data', error);
     } finally {
@@ -74,25 +78,28 @@ export default function HomeScreen() {
   };
 
   // Calculate Weight Stats
-  let initialWeight = 0;
+  let initialWeight = userStats?.initialWeight || 0;
   let currentWeight = 0;
   let weightLoss = 0;
   let weightLossPercentage = 0;
   let remainingGoal = 0; 
-  let targetWeight = 0;
+  let targetWeight = userStats?.targetWeight || 0;
 
   if (logs.length > 0) {
     currentWeight = Number(logs[0].weight_kg) || 0;
-    initialWeight = Number(logs[logs.length - 1].weight_kg) || 0;
+    if (!initialWeight) {
+      initialWeight = Number(logs[logs.length - 1].weight_kg) || 0;
+    }
+    if (!targetWeight) {
+      // Fallback target calculation: 22 BMI based target or 10kg less than initial
+      if (profile?.height_cm) {
+        targetWeight = (profile.height_cm / 100) ** 2 * 22; // Healthy BMI target
+      } else {
+        targetWeight = initialWeight > 60 ? initialWeight - 10 : initialWeight;
+      }
+    }
     weightLoss = initialWeight - currentWeight;
     weightLossPercentage = initialWeight > 0 ? (weightLoss / initialWeight) * 100 : 0;
-    
-    // Fallback target calculation: 22 BMI based target or 10kg less than initial
-    if (profile?.height_cm) {
-      targetWeight = (profile.height_cm / 100) ** 2 * 22; // Healthy BMI target
-    } else {
-      targetWeight = initialWeight > 60 ? initialWeight - 10 : initialWeight;
-    }
     
     remainingGoal = currentWeight - targetWeight;
     if (remainingGoal < 0 && profile?.goal !== 'gain') remainingGoal = 0; // If they reached goal

@@ -19,6 +19,7 @@ import Input from '../../components/Input';
 import GlassBackground from '../../components/GlassBackground';
 import { getProfile, updateProfile, removeToken } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
+import { getUserStats, saveUserStats } from '../../services/userStatsStorage';
 
 interface UserProfile {
   id: number;
@@ -77,7 +78,7 @@ export default function ProfileScreen() {
   const [form, setForm] = useState({
     age: '', gender: 'male', goal: 'maintain',
     heightCm: '', heightFt: '', heightIn: '',
-    weightKg: '', weightLbs: ''
+    weightKg: '', weightLbs: '', initialWeightKg: '', targetWeightKg: ''
   });
   const [formErrors, setFormErrors] = useState<any>({});
   const [saving, setSaving] = useState(false);
@@ -103,12 +104,12 @@ export default function ProfileScreen() {
 
   const fetchProfile = async () => {
     try {
-      const res = await getProfile();
+      const [res, stats] = await Promise.all([getProfile(), getUserStats()]);
       setProfile(res.data);
       if (!res.data.daily_calorie_target) {
         setIsEditing(true);
       } else {
-        populateForm(res.data);
+        populateForm(res.data, stats);
       }
     } catch (err: any) {
       setError('Failed to load profile');
@@ -121,7 +122,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const populateForm = (data: UserProfile) => {
+  const populateForm = (data: UserProfile, stats?: any) => {
     const totalInches = (data.height_cm || 0) / 2.54;
     setForm({
       age: data.age?.toString() || '',
@@ -131,7 +132,9 @@ export default function ProfileScreen() {
       heightFt: Math.floor(totalInches / 12).toString(),
       heightIn: Math.round(totalInches % 12).toString(),
       weightKg: data.weight_kg?.toString() || '',
-      weightLbs: Math.round((data.weight_kg || 0) * 2.20462).toString()
+      weightLbs: Math.round((data.weight_kg || 0) * 2.20462).toString(),
+      initialWeightKg: stats?.initialWeight?.toString() || '',
+      targetWeightKg: stats?.targetWeight?.toString() || ''
     });
   };
 
@@ -184,6 +187,10 @@ export default function ProfileScreen() {
         goal: form.goal
       };
 
+      await saveUserStats({
+        initialWeight: form.initialWeightKg ? parseFloat(form.initialWeightKg) : null,
+        targetWeight: form.targetWeightKg ? parseFloat(form.targetWeightKg) : null
+      });
       const res = await updateProfile(payload);
       setProfile((prev) => prev ? { ...prev, ...payload, daily_calorie_target: res.data.daily_calorie_target } : null);
       setSuccessMsg('Profile updated successfully!');
@@ -228,7 +235,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{profile?.daily_calorie_target ? 'Update your body stats' : "Let's calculate your target calories"}</Text>
               </View>
               {profile?.daily_calorie_target && (
-                <TouchableOpacity onPress={() => { setIsEditing(false); if (profile) populateForm(profile); }} style={[styles.closeBtn, { backgroundColor: theme.surface }]}>
+                <TouchableOpacity onPress={() => { setIsEditing(false); if (profile) getUserStats().then(stats => populateForm(profile, stats)); }} style={[styles.closeBtn, { backgroundColor: theme.surface }]}>
                   <Ionicons name="close" size={24} color={theme.textMuted} />
                 </TouchableOpacity>
               )}
@@ -300,6 +307,15 @@ export default function ProfileScreen() {
                   <Input label="" value={form.weightLbs} onChangeText={(v) => setForm({ ...form, weightLbs: v })} keyboardType="numeric" icon="scale-outline" placeholder="185" error={formErrors.weightLbs} />
                 )}
               </View>
+            </View>
+
+            <View style={{ flexDirection: isMobileLayout ? 'column' : 'row', gap: isMobileLayout ? 0 : 24 }}>
+               <View style={styles.flex}>
+                 <Input label="Initial Weight (kg)" value={form.initialWeightKg} onChangeText={(v) => setForm({ ...form, initialWeightKg: v })} keyboardType="numeric" icon="speedometer-outline" placeholder="Your starting weight" />
+               </View>
+               <View style={styles.flex}>
+                 <Input label="Goal Weight (kg)" value={form.targetWeightKg} onChangeText={(v) => setForm({ ...form, targetWeightKg: v })} keyboardType="numeric" icon="flag-outline" placeholder="Your goal weight" />
+               </View>
             </View>
 
             <Text style={[styles.labelSm, { color: theme.textMuted, marginTop: 8 }]}>Fitness Goal</Text>
