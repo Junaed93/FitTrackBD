@@ -82,6 +82,7 @@ export default function HomeScreen() {
   let currentWeight = 0;
   let weightLoss = 0;
   let weightLossPercentage = 0;
+  let weightTrendLabel = 'No change';
   let remainingGoal = 0; 
   let targetWeight = userStats?.targetWeight || 0;
 
@@ -100,6 +101,8 @@ export default function HomeScreen() {
     }
     weightLoss = initialWeight - currentWeight;
     weightLossPercentage = initialWeight > 0 ? (weightLoss / initialWeight) * 100 : 0;
+    if (weightLoss > 0) weightTrendLabel = 'Lost';
+    else if (weightLoss < 0) weightTrendLabel = 'Gained';
     
     remainingGoal = currentWeight - targetWeight;
     if (remainingGoal < 0 && profile?.goal !== 'gain') remainingGoal = 0; // If they reached goal
@@ -175,7 +178,7 @@ export default function HomeScreen() {
                 <View style={[styles.statBox, { borderColor: theme.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                   <Text style={[styles.statLabel, { color: theme.textMuted }]}>Progress</Text>
                   <Text style={[styles.statValue, { color: weightLoss >= 0 ? theme.success : theme.error }]}>
-                    {weightLossPercentage > 0 ? `-${weightLossPercentage.toFixed(1)}%` : `+${Math.abs(weightLossPercentage).toFixed(1)}%`}
+                    {weightTrendLabel} {Math.abs(weightLossPercentage).toFixed(1)}%
                   </Text>
                 </View>
                 <View style={[styles.statBox, { borderColor: theme.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}>
