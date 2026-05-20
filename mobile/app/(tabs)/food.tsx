@@ -38,7 +38,6 @@ export default function FoodScreen() {
   const [consumedCalories, setConsumedCalories] = useState(0);
   const [todayLogs, setTodayLogs] = useState<FoodLog[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<MealKey>('breakfast');
-  const [expandedMeal, setExpandedMeal] = useState<MealKey | null>(null);
 
   // Modals Visibility
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -204,18 +203,20 @@ export default function FoodScreen() {
 
   const toggleMealSection = (meal: MealKey) => {
     setSelectedMeal(meal);
-    setExpandedMeal((current) => (current === meal ? null : meal));
   };
 
   const renderMealSection = (meal: { key: MealKey; label: string; hint: string }) => {
+    const mealLogs = getMealLogs(meal.key);
+    const totals = getMealTotals(mealLogs);
+
     return (
       <TouchableOpacity
         key={meal.key}
         style={[
-          styles.mealSelectionCard,
+          styles.mealSummaryCard,
           {
-            backgroundColor: expandedMeal === meal.key ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.05)',
-            borderColor: expandedMeal === meal.key ? theme.accentBorder : 'rgba(255,255,255,0.1)',
+            backgroundColor: selectedMeal === meal.key ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.05)',
+            borderColor: selectedMeal === meal.key ? theme.accentBorder : 'rgba(255,255,255,0.1)',
           },
         ]}
         onPress={() => toggleMealSection(meal.key)}
@@ -235,28 +236,31 @@ export default function FoodScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-          <Text style={[styles.mealSectionTotal, { color: theme.accentLight }]}>{getMealTotals(getMealLogs(meal.key)).calories} kcal</Text>
-          <Text style={[styles.mealSectionMeta, { color: theme.textMuted }]}>{getMealLogs(meal.key).length} items</Text>
+          <Text style={[styles.mealSectionTotal, { color: theme.accentLight }]}>{totals.calories} kcal</Text>
+          <Text style={[styles.mealSectionMeta, { color: theme.textMuted }]}>{mealLogs.length} items</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderExpandedMealDetails = (mealKey: MealKey) => {
+  const renderSelectedMealDetails = (mealKey: MealKey) => {
     const meal = MEALS.find((item) => item.key === mealKey);
     if (!meal) return null;
 
-    const mealLogs = getMealLogs(meal.key);
+    const mealLogs = getMealLogs(mealKey);
     const totals = getMealTotals(mealLogs);
 
     return (
       <View style={[styles.mealDetailsPanel, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: theme.accentBorder }]}>
         <View style={styles.mealSectionHeader}>
-          <View>
+          <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={[styles.mealSectionTitle, { color: theme.text }]}>{meal.label}</Text>
             <Text style={[styles.mealSectionSubtitle, { color: theme.textMuted }]}>{meal.hint}</Text>
           </View>
-          <TouchableOpacity onPress={() => openMealLogger(meal.key)} style={[styles.mealLogBtn, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}>
+          <TouchableOpacity
+            style={[styles.mealLogBtn, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}
+            onPress={() => openMealLogger(meal.key)}
+          >
             <Ionicons name="add" size={16} color={theme.accentLight} />
           </TouchableOpacity>
         </View>
@@ -329,7 +333,7 @@ export default function FoodScreen() {
             </View>
           )}
 
-          {expandedMeal ? renderExpandedMealDetails(expandedMeal) : null}
+          {selectedMeal ? renderSelectedMealDetails(selectedMeal) : null}
         </View>
       </ScrollView>
 
@@ -622,9 +626,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
+  mealSummaryCard: {
+    width: '48%',
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+  },
   mealDetailsPanel: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 20,
     padding: 16,
     marginTop: 12,
   },
