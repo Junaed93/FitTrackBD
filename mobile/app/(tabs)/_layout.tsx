@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Platform, StyleSheet, Animated, useWindowDimensions, Keyboard, PanResponder, TouchableOpacity, LinearGradient } from 'react-native';
+import { View, Platform, StyleSheet, Animated, useWindowDimensions, Keyboard, PanResponder, TouchableOpacity } from 'react-native';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,11 +11,13 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
+  const visibleRouteNames = ['home', 'food', 'calorie', 'profile'];
+  const visibleRoutes = state.routes.filter((route) => visibleRouteNames.includes(route.name));
   
   // Tab Bar Width configuration
   const HORIZONTAL_PADDING = 16;
   const TAB_BAR_WIDTH = width - (HORIZONTAL_PADDING * 2);
-  const TAB_WIDTH = TAB_BAR_WIDTH / state.routes.length;
+  const TAB_WIDTH = TAB_BAR_WIDTH / visibleRoutes.length;
   
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const panX = useRef(new Animated.Value(state.index * TAB_WIDTH)).current;
@@ -56,7 +59,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
         // Since we hijack mid-move, gs.x0 is where the gesture started.
         let localX = gs.x0 - HORIZONTAL_PADDING;
         let newX = localX - (TAB_WIDTH / 2);
-        const maxX = (state.routes.length - 1) * TAB_WIDTH;
+        const maxX = (visibleRoutes.length - 1) * TAB_WIDTH;
         if (newX < 0) newX = 0;
         if (newX > maxX) newX = maxX;
         panX.setValue(newX);
@@ -64,7 +67,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
       onPanResponderMove: (e, gs) => {
         let localX = gs.moveX - HORIZONTAL_PADDING;
         let newX = localX - (TAB_WIDTH / 2);
-        const maxX = (state.routes.length - 1) * TAB_WIDTH;
+        const maxX = (visibleRoutes.length - 1) * TAB_WIDTH;
         if (newX < 0) newX = 0;
         if (newX > maxX) newX = maxX;
         panX.setValue(newX);
@@ -74,7 +77,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
         
         let targetIndex = Math.floor(localX / TAB_WIDTH);
         if (targetIndex < 0) targetIndex = 0;
-        if (targetIndex >= state.routes.length) targetIndex = state.routes.length - 1;
+        if (targetIndex >= visibleRoutes.length) targetIndex = visibleRoutes.length - 1;
 
         Animated.spring(panX, {
           toValue: targetIndex * TAB_WIDTH,
@@ -83,7 +86,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
           speed: 12
         }).start();
 
-        const route = state.routes[targetIndex];
+        const route = visibleRoutes[targetIndex];
         
         const event = navigation.emit({
           type: 'tabPress',
@@ -91,13 +94,13 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
           canPreventDefault: true,
         });
 
-        if (targetIndex !== state.index && !event.defaultPrevented) {
-          navigation.navigate({ name: route.name, merge: true });
+        if (route && targetIndex !== state.index && !event.defaultPrevented) {
+          navigation.navigate({ name: route.name, params: undefined, merge: true });
         }
       },
       onPanResponderTerminate: () => {
          Animated.spring(panX, {
-           toValue: state.index * TAB_WIDTH,
+           toValue: Math.max(0, visibleRoutes.findIndex((route) => route.name === state.routes[state.index]?.name)) * TAB_WIDTH,
            useNativeDriver: false,
            bounciness: 8,
            speed: 12
@@ -145,9 +148,9 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
 
         {/* Tab Items Container wrapped with PanResponder */}
         <View style={styles.tabItemsContainer} {...panResponder.panHandlers}>
-          {state.routes.map((route, index) => {
+          {visibleRoutes.map((route, index) => {
             const { options } = descriptors[route.key];
-            const isFocused = state.index === index;
+            const isFocused = state.routes[state.index]?.name === route.name;
 
             // Icons
             let iconName: any = 'home-outline';
@@ -164,7 +167,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
               });
 
               if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate({ name: route.name, merge: true });
+                navigation.navigate({ name: route.name, params: undefined, merge: true });
               }
             };
 
@@ -181,7 +184,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
                 accessibilityRole="button"
                 accessibilityState={isFocused ? { selected: true } : {}}
                 accessibilityLabel={options.tabBarAccessibilityLabel}
-                testID={options.tabBarTestID}
+                testID={options.tabBarButtonTestID}
                 onPress={onPress}
                 onLongPress={onLongPress}
                 style={styles.tabItem}

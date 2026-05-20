@@ -2,12 +2,14 @@ import React from 'react';
 import { View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function GlassBackground({ children }: { children: React.ReactNode }) {
   const { isDark } = useTheme();
+  const useLiquidGlass = Platform.OS === 'ios' && typeof isGlassEffectAPIAvailable === 'function' && isGlassEffectAPIAvailable();
 
   return (
     <View style={styles.container}>
@@ -31,15 +33,29 @@ export default function GlassBackground({ children }: { children: React.ReactNod
       </View>
 
       {/* Main Glass Layer */}
-      {Platform.OS !== 'web' ? (
-        <BlurView intensity={isDark ? 100 : 80} tint={isDark ? "dark" : "light"} style={styles.absolute}>
-          {children}
-        </BlurView>
-      ) : (
-        <View style={[styles.absolute, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.6)', backdropFilter: 'blur(40px)' } as any]}>
-          {children}
-        </View>
-      )}
+      <View style={styles.absolute} pointerEvents="none">
+        {useLiquidGlass ? (
+          <GlassView glassEffectStyle="regular" style={StyleSheet.absoluteFillObject} />
+        ) : Platform.OS !== 'web' ? (
+          <BlurView intensity={isDark ? 100 : 80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: isDark ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.68)' } as any]} />
+        )}
+
+        <LinearGradient
+          colors={[
+            isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.4)',
+            'rgba(255,255,255,0.03)',
+            isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'
+          ]}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+
+      <View style={styles.content}>{children}</View>
     </View>
   );
 }
@@ -54,6 +70,9 @@ const styles = StyleSheet.create({
   },
   absolute: {
     ...StyleSheet.absoluteFillObject,
+  },
+  content: {
+    flex: 1,
   },
   orb: {
     position: 'absolute',

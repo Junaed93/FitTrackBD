@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, ScrollView, ActivityIndicator, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import GlassBackground from '../../components/GlassBackground';
+import AppHeader from './_AppHeader';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import { useTheme } from '../../context/ThemeContext';
@@ -114,6 +115,7 @@ export default function HomeScreen() {
 
   return (
     <GlassBackground>
+      <AppHeader />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={{ marginBottom: 24 }}>
           <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()},</Text>
@@ -229,7 +231,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 64 : 40,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   greeting: {

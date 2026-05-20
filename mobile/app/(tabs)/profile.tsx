@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import GlassBackground from '../../components/GlassBackground';
+import AppHeader from './_AppHeader';
 import { getProfile, updateProfile, removeToken } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { getUserStats, saveUserStats } from '../../services/userStatsStorage';
@@ -238,6 +239,7 @@ export default function ProfileScreen() {
   if (isEditing) {
     return (
       <GlassBackground>
+        <AppHeader />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scrollPad} keyboardShouldPersistTaps="handled">
           <View style={styles.contentMax}>
@@ -362,23 +364,8 @@ export default function ProfileScreen() {
 
   return (
     <GlassBackground>
+      <AppHeader />
       <View style={styles.flex}>
-      {/* Header NavBar */}
-      <View style={[styles.navBar, { borderBottomColor: 'transparent' }]}>
-         <View style={styles.navBrand}>
-            <Ionicons name="fitness" size={28} color={theme.accent} />
-            <Text style={[styles.navTitle, { color: theme.text }]}>FitTrack<Text style={{ color: theme.accent }}>BD</Text></Text>
-         </View>
-         <View style={{ flexDirection: 'row', gap: 12 }}>
-           <TouchableOpacity onPress={toggleTheme} style={[styles.iconBtnNav, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]} accessibilityLabel="Toggle theme">
-             <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={theme.textSecondary} />
-           </TouchableOpacity>
-           <TouchableOpacity onPress={handleLogout} style={[styles.iconBtnNav, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }]} accessibilityLabel="Logout">
-             <Ionicons name="log-out-outline" size={20} color={theme.error} />
-           </TouchableOpacity>
-         </View>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollPad}>
         <View style={styles.contentMaxLg}>
           {successMsg ? (
@@ -431,8 +418,8 @@ export default function ProfileScreen() {
             </View>
 
             <View style={[styles.statsCard, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', marginBottom: 24 }]}>
-              <InfoRow icon="resize-outline" label="Height" value={`${formatHeight(profile?.height_cm)} cm`} theme={theme} />
-              <InfoRow icon="scale-outline" label="Weight" value={`${formatWeight(profile?.weight_kg)} kg`} theme={theme} />
+              <InfoRow icon="resize-outline" label="Height" value={`${formatHeight(profile?.height_cm ?? null)} cm`} theme={theme} />
+              <InfoRow icon="scale-outline" label="Weight" value={`${formatWeight(profile?.weight_kg ?? null)} kg`} theme={theme} />
               <InfoRow icon="calendar-outline" label="Age" value={`${profile?.age} yrs`} theme={theme} />
               <InfoRow icon="male-female-outline" label="Gender" value={profile?.gender || '-'} theme={theme} capitalize />
             </View>
@@ -506,11 +493,6 @@ const styles = StyleSheet.create({
   goalBtn: { flexGrow: 1, paddingVertical: 20, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   goalLabel: { fontWeight: '700', fontSize: 14, marginTop: 12, textAlign: 'center' },
   goalDesc: { fontSize: 12, marginTop: 4, textAlign: 'center' },
-
-  navBar: { paddingTop: Platform.OS === 'ios' ? 56 : 40, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1 },
-  navBrand: { flexDirection: 'row', alignItems: 'center' },
-  navTitle: { fontSize: 20, fontWeight: '800', marginLeft: 8 },
-  iconBtnNav: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 
   targetCard: { borderWidth: 1, borderRadius: 32, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
   targetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },

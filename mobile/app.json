@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "FitTrackBD",
-    "slug": "fittrackbd",
+    "name": "Trimly",
+    "slug": "trimly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "fittrackbd",
+    "scheme": "trimly",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",

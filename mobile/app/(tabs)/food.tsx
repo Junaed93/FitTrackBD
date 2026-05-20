@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, ScrollView, FlatList, TouchableOpacit
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import GlassBackground from '../../components/GlassBackground';
+import AppHeader from './_AppHeader';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import { useTheme } from '../../context/ThemeContext';
@@ -297,6 +298,7 @@ export default function FoodScreen() {
 
   return (
     <GlassBackground>
+      <AppHeader />
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
         <Text style={[styles.title, { color: theme.text }]}>Food Log</Text>
         
@@ -499,7 +501,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 64 : 40,
+    paddingTop: 8,
     paddingBottom: 24,
   },
   title: {

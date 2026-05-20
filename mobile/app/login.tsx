@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,10 +104,14 @@ export default function LoginScreen() {
             {/* ── Brand ── */}
             <View style={styles.brandRow}>
               <View style={[styles.logoBox, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}>
-                <Ionicons name="fitness" size={40} color={theme.accent} />
+                <Image
+                  source={require('../assets/images/trimly logo.png')}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={[styles.appName, { color: theme.text }]}>
-                FitTrack<Text style={{ color: theme.accent }}>BD</Text>
+                Trimly
               </Text>
               <Text style={[styles.tagline, { color: theme.textMuted }]}>
                 Your fitness journey starts here
@@ -233,9 +238,15 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 24,
     borderWidth: 1.5,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+  },
+  brandLogo: {
+    width: 64,
+    height: 64,
+    transform: [{ scale: 1.12 }],
   },
   appName: {
     fontSize: 32,

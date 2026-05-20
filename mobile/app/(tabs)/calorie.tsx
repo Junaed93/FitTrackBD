@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import GlassBackground from '../../components/GlassBackground';
+import AppHeader from './_AppHeader';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function CalorieScreen() {
@@ -8,6 +9,7 @@ export default function CalorieScreen() {
 
   return (
     <GlassBackground>
+      <AppHeader />
       <View style={styles.container}>
         <View style={[styles.glassCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.title, { color: theme.text }]}>Calorie Burn</Text>
@@ -22,7 +24,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 64 : 40,
+    paddingTop: 8,
   },
   glassCard: {
     padding: 24,

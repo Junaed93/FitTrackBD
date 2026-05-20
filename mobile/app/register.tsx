@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,7 +145,11 @@ export default function RegisterScreen() {
           {/* ── Brand icon ── */}
           <View style={styles.brandRow}>
             <View style={[styles.logoBox, { backgroundColor: theme.accentSurface, borderColor: theme.accentBorder }]}>
-              <Ionicons name="rocket" size={36} color={theme.accent} />
+              <Image
+                source={require('../assets/images/trimly logo.png')}
+                style={styles.brandLogo}
+                resizeMode="contain"
+              />
             </View>
           </View>
 
@@ -276,8 +281,14 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 22,
     borderWidth: 1.5,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  brandLogo: {
+    width: 58,
+    height: 58,
+    transform: [{ scale: 1.08 }],
   },
   heading: {
     fontSize: 26,
